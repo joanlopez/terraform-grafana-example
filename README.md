@@ -94,6 +94,8 @@ First of all, you need to have these tools up and running before starting:
       pull_request:
 
     env:
+      TF_VAR_GRAFANA_URL: "${{ secrets.GRAFANA_URL }}"
+      TF_VAR_GRAFANA_TOKEN: "${{ secrets.GRAFANA_TOKEN }}"
       TF_CLOUD_ORGANIZATION: "${{ vars.TF_CLOUD_ORGANIZATION }}"
       TF_API_TOKEN: "${{ secrets.TF_API_TOKEN }}"
       TF_WORKSPACE: "${{ vars.TF_WORKSPACE }}"
@@ -182,6 +184,8 @@ First of all, you need to have these tools up and running before starting:
           - main
 
     env:
+      TF_VAR_GRAFANA_URL: "${{ secrets.GRAFANA_URL }}"
+      TF_VAR_GRAFANA_TOKEN: "${{ secrets.GRAFANA_TOKEN }}"
       TF_CLOUD_ORGANIZATION: "${{ vars.TF_CLOUD_ORGANIZATION }}"
       TF_API_TOKEN: "${{ secrets.TF_API_TOKEN }}"
       TF_WORKSPACE: "${{ vars.TF_WORKSPACE }}"
