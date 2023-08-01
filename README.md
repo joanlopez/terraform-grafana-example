@@ -72,6 +72,17 @@ First of all, you need to have these tools up and running before starting:
     }
     ```
 
+5. **Set up Grafana and Terraform auth** as [Actions secrets](https://docs.github.com/en/actions/security-guides/encrypted-secrets):
+
+   - `GRAFANA_URL` with the root url of your instance
+   - `GRAFANA_TOKEN` with your service account token
+   - `TF_API_TOKEN` with your Terraform Cloud API token
+
+   Additionally, you may want to set up the following variables:
+
+   - `TF_CLOUD_ORGANIZATION` with the id of your Terraform cloud organization
+   - `TF_WORKSPACE` with the id of your Terraform cloud workspace
+
 ## Contribute
 
 Have you detected a typo or something incorrect, and you are **willing to contribute?**
