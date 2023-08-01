@@ -83,6 +83,147 @@ First of all, you need to have these tools up and running before starting:
    - `TF_CLOUD_ORGANIZATION` with the id of your Terraform cloud organization
    - `TF_WORKSPACE` with the id of your Terraform cloud workspace
 
+6. **Set up GitHub Actions** to automatically `terraform plan` your changes on every pull request:
+
+    ```yaml
+    # .github/workflows/terraform-plan.yml
+
+    name: "Terraform Plan"
+
+    on:
+      pull_request:
+
+    env:
+      TF_VAR_GRAFANA_URL: "${{ secrets.GRAFANA_URL }}"
+      TF_VAR_GRAFANA_TOKEN: "${{ secrets.GRAFANA_TOKEN }}"
+      TF_CLOUD_ORGANIZATION: "${{ vars.TF_CLOUD_ORGANIZATION }}"
+      TF_API_TOKEN: "${{ secrets.TF_API_TOKEN }}"
+      TF_WORKSPACE: "${{ vars.TF_WORKSPACE }}"
+      CONFIG_DIRECTORY: "./"
+
+    jobs:
+      terraform:
+        name: "Terraform Plan"
+        runs-on: ubuntu-latest
+        permissions:
+          contents: read
+          pull-requests: write
+        steps:
+          - name: Checkout
+            uses: actions/checkout@v3
+
+          - name: Upload Configuration
+            uses: hashicorp/tfc-workflows-github/actions/upload-configuration@v1.0.0
+            id: plan-upload
+            with:
+              workspace: ${{ env.TF_WORKSPACE }}
+              directory: ${{ env.CONFIG_DIRECTORY }}
+              speculative: true
+
+          - name: Create Plan Run
+            uses: hashicorp/tfc-workflows-github/actions/create-run@v1.0.0
+            id: plan-run
+            with:
+              workspace: ${{ env.TF_WORKSPACE }}
+              configuration_version: ${{ steps.plan-upload.outputs.configuration_version_id }}
+              plan_only: true
+
+          - name: Get Plan Output
+            uses: hashicorp/tfc-workflows-github/actions/plan-output@v1.0.0
+            id: plan-output
+            with:
+              plan: ${{ fromJSON(steps.plan-run.outputs.payload).data.relationships.plan.data.id }}
+
+          - name: Update PR
+            uses: actions/github-script@v6
+            id: plan-comment
+            with:
+              github-token: ${{ secrets.GITHUB_TOKEN }}
+              script: |
+                // 1. Retrieve existing bot comments for the PR
+                const { data: comments } = await github.rest.issues.listComments({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: context.issue.number,
+                });
+                const botComment = comments.find(comment => {
+                  return comment.user.type === 'Bot' && comment.body.includes('Terraform Cloud Plan Output')
+                });
+                const output = `#### Terraform Cloud Plan Output
+                   \`\`\`
+                   Plan: ${{ steps.plan-output.outputs.add }} to add, ${{ steps.plan-output.outputs.change }} to change, ${{ steps.plan-output.outputs.destroy }} to destroy.
+                   \`\`\`
+                   [Terraform Cloud Plan](${{ steps.plan-run.outputs.run_link }})
+                   `;
+                // 3. Delete previous comment so PR timeline makes sense
+                if (botComment) {
+                  github.rest.issues.deleteComment({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    comment_id: botComment.id,
+                  });
+                }
+                github.rest.issues.createComment({
+                  issue_number: context.issue.number,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: output
+                });
+    ```
+
+7. **Set up GitHub Actions** to automatically `terraform apply` your changes on every push to `main`:
+
+    ```yaml
+    # .github/workflows/terraform-apply.yml
+
+    name: "Terraform Apply"
+
+    on:
+      push:
+        branches:
+          - main
+
+    env:
+      TF_VAR_GRAFANA_URL: ${{ secrets.GRAFANA_URL }}
+      TF_VAR_GRAFANA_TOKEN: ${{ secrets.GRAFANA_TOKEN }}
+      TF_CLOUD_ORGANIZATION: "${{ vars.TF_CLOUD_ORGANIZATION }}"
+      TF_API_TOKEN: "${{ secrets.TF_API_TOKEN }}"
+      TF_WORKSPACE: "${{ vars.TF_WORKSPACE }}"
+      CONFIG_DIRECTORY: "./"
+
+    jobs:
+      terraform:
+        name: "Terraform Apply"
+        runs-on: ubuntu-latest
+        permissions:
+          contents: read
+        steps:
+          - name: Checkout
+            uses: actions/checkout@v3
+
+          - name: Upload Configuration
+            uses: hashicorp/tfc-workflows-github/actions/upload-configuration@v1.0.0
+            id: apply-upload
+            with:
+              workspace: ${{ env.TF_WORKSPACE }}
+              directory: ${{ env.CONFIG_DIRECTORY }}
+
+          - name: Create Apply Run
+            uses: hashicorp/tfc-workflows-github/actions/create-run@v1.0.0
+            id: apply-run
+            with:
+              workspace: ${{ env.TF_WORKSPACE }}
+              configuration_version: ${{ steps.apply-upload.outputs.configuration_version_id }}
+
+          - name: Apply
+            uses: hashicorp/tfc-workflows-github/actions/apply-run@v1.0.0
+            if: fromJSON(steps.apply-run.outputs.payload).data.attributes.actions.IsConfirmable
+            id: apply
+            with:
+              run: ${{ steps.apply-run.outputs.run_id }}
+              comment: "Apply Run from GitHub Actions CI ${{ github.sha }}"
+    ```
+
 ## Contribute
 
 Have you detected a typo or something incorrect, and you are **willing to contribute?**
