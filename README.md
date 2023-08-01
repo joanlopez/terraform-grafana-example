@@ -58,7 +58,20 @@ First of all, you need to have these tools up and running before starting:
     ```sh
     terraform init
     ```
-   
+
+4. **Create a `resources.tf` file** with a basic dashboard and the resource definition:
+
+    ```terraform
+    data "schemas_core_dashboard" "example" {
+      title = "Terraform example"
+      description = "Example dashboard built with Terraform"
+    }
+
+    resource "grafana_dashboard" "example" {
+      config_json = data.schemas_core_dashboard.example.rendered_json
+    }
+    ```
+
 ## Contribute
 
 Have you detected a typo or something incorrect, and you are **willing to contribute?**
